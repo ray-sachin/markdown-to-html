@@ -3,8 +3,8 @@ index.html
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Markdown → HTML Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Markdown → HTML (Marked + Highlight.js)</title>
 
   <!-- Highlight.js theme -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
@@ -12,107 +12,192 @@ index.html
   <style>
     :root {
       color-scheme: light dark;
+      --bg: #ffffff;
+      --fg: #1f2328;
+      --muted: #6a737d;
+      --border: #d0d7de;
+      --code-bg: #f6f8fa;
+      --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.06);
     }
-    body {
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --fg: #e6edf3;
+        --muted: #8b949e;
+        --border: #30363d;
+        --code-bg: #161b22;
+      }
+    }
+    html, body {
+      height: 100%;
       margin: 0;
+      background: var(--bg);
+      color: var(--fg);
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
       line-height: 1.6;
-      background: Canvas;
-      color: CanvasText;
+    }
+    .container {
+      max-width: 860px;
+      margin: 2rem auto;
+      padding: 0 1rem;
     }
     header {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid color-mix(in oklab, CanvasText 12%, Canvas 88%);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: .75rem;
     }
-    main {
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 1.25rem;
+    #status {
+      font-size: .9rem;
+      color: var(--muted);
     }
-    #markdown-output :is(h1, h2, h3, h4, h5, h6) {
-      margin-top: 1.25em;
-      border-bottom: 1px solid color-mix(in oklab, CanvasText 15%, Canvas 85%);
-      padding-bottom: 0.3em;
-    }
-    pre {
-      background: color-mix(in oklab, Canvas 90%, CanvasText 10%);
-      border: 1px solid color-mix(in oklab, CanvasText 10%, Canvas 90%);
+    #markdown-output {
+      background: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1em;
-      overflow: auto;
+      padding: 1rem 1.25rem;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
     }
-    code {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    /* Basic typographic polish */
+    #markdown-output h1, #markdown-output h2, #markdown-output h3,
+    #markdown-output h4, #markdown-output h5, #markdown-output h6 {
+      line-height: 1.25;
+      margin-top: 1.5em;
+      margin-bottom: .5em;
+    }
+    #markdown-output pre {
+      background: var(--code-bg);
+      padding: .85rem;
+      border-radius: 6px;
+      overflow: auto;
+      border: 1px solid var(--border);
+    }
+    #markdown-output code:not(pre code) {
+      background: var(--code-bg);
+      padding: .1rem .3rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
       font-size: 0.95em;
     }
+    #markdown-output a {
+      color: #0969da;
+      text-decoration: none;
+    }
+    #markdown-output a:hover {
+      text-decoration: underline;
+    }
+    .error {
+      color: #d1242f;
+      white-space: pre-wrap;
+    }
     .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
+      position: absolute !important;
+      height: 1px; width: 1px;
       overflow: hidden;
-      clip: rect(0, 0, 0, 0);
+      clip: rect(1px, 1px, 1px, 1px);
       white-space: nowrap;
-      border: 0;
+    }
+    noscript {
+      display: block;
+      margin-top: 1rem;
+      color: #d1242f;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1 style="margin:0;font-size:1.25rem;">Markdown Preview</h1>
-    <p class="sr-only">This page loads input.md, converts it with Marked, and highlights code with Highlight.js.</p>
-  </header>
+  <div class="container">
+    <header>
+      <h1>Markdown Preview</h1>
+      <div id="status" aria-live="polite">Idle</div>
+    </header>
 
-  <main>
-    <div id="markdown-output">Loading…</div>
-  </main>
+    <main id="markdown-output" aria-live="polite">
+      <noscript>This page requires JavaScript to load and render input.md.</noscript>
+    </main>
+  </div>
 
-  <!-- Marked (markdown parser) -->
+  <!-- Highlight.js (load before using with Marked's highlight option) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+  <!-- Marked -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <!-- Highlight.js (code syntax highlighting) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.js"></script>
 
   <script>
-    (async () => {
-      try {
-        // Fetch the attached markdown file
-        const res = await fetch('input.md', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`Failed to load input.md (${res.status})`);
-        const markdown = await res.text();
+    (function () {
+      const outputEl = document.getElementById('markdown-output');
+      const statusEl = document.getElementById('status');
 
-        // Configure marked to use highlight.js
+      // Configure Marked with Highlight.js for code blocks
+      if (window.marked && window.hljs) {
         marked.setOptions({
           gfm: true,
           breaks: false,
-          headerIds: true,
-          mangle: false,
-          highlight: (code, lang) => {
+          highlight(code, lang) {
             try {
               if (lang && hljs.getLanguage(lang)) {
                 return hljs.highlight(code, { language: lang }).value;
               }
+              return hljs.highlightAuto(code).value;
             } catch (e) {
-              // fall through to auto
+              return code;
             }
-            return hljs.highlightAuto(code).value;
           }
         });
-
-        // Convert and render
-        const html = marked.parse(markdown);
-        const container = document.getElementById('markdown-output');
-        container.innerHTML = html;
-
-        // Ensure any remaining code blocks are highlighted
-        container.querySelectorAll('pre code').forEach(block => {
-          hljs.highlightElement(block);
-        });
-      } catch (err) {
-        console.error(err);
-        const container = document.getElementById('markdown-output');
-        container.innerHTML = '<p style="color:crimson">Error loading markdown: ' + String(err.message || err) + '</p>';
       }
+
+      async function loadMarkdown() {
+        statusEl.textContent = 'Loading…';
+        try {
+          const res = await fetch('input.md', { cache: 'no-store' });
+          if (!res.ok) throw new Error('Failed to fetch input.md: ' + res.status + ' ' + res.statusText);
+          const md = await res.text();
+
+          const html = marked.parse(md);
+          outputEl.innerHTML = html;
+
+          // Optional: add ids to headings for direct linking
+          addHeadingAnchors(outputEl);
+
+          statusEl.textContent = 'Loaded';
+          setTimeout(() => { if (statusEl.textContent === 'Loaded') statusEl.textContent = 'Idle'; }, 1000);
+        } catch (err) {
+          statusEl.textContent = 'Error';
+          outputEl.innerHTML = '<p class="error">Could not load input.md.</p><pre class="error"></pre>';
+          outputEl.querySelector('pre').textContent = String(err);
+        }
+      }
+
+      function slugify(text) {
+        return text.toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .trim()
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
+      }
+
+      function addHeadingAnchors(root) {
+        const headings = root.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        for (const h of headings) {
+          if (!h.id) h.id = slugify(h.textContent || '');
+          if (!h.id) continue;
+          const a = document.createElement('a');
+          a.href = '#' + h.id;
+          a.textContent = '¶';
+          a.setAttribute('aria-label', 'Link to this section');
+          a.style.marginLeft = '.5rem';
+          a.style.textDecoration = 'none';
+          a.style.color = 'var(--muted)';
+          a.addEventListener('mouseover', () => a.style.color = '#0969da');
+          a.addEventListener('mouseout', () => a.style.color = 'var(--muted)');
+          h.appendChild(a);
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', loadMarkdown);
     })();
   </script>
 </body>
